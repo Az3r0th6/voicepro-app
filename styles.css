@@ -23,10 +23,12 @@ body {
     color: var(--text-color);
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
+    overflow-x: hidden;
     position: relative;
+    padding: 20px;
 }
 
 /* Background animated blobs */
@@ -72,11 +74,13 @@ body {
     -webkit-backdrop-filter: blur(20px);
     border-radius: 20px;
     padding: 40px;
-    width: 90%;
+    width: 100%;
     max-width: 600px;
     text-align: center;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     transition: all 0.5s ease;
+    margin: auto;
+    z-index: 10;
 }
 
 /* Screens */
@@ -289,11 +293,33 @@ canvas {
 
 /* Footer */
 footer {
-    position: absolute;
-    bottom: 20px;
     width: 100%;
     text-align: center;
     color: #64748b;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
+    margin-top: 20px;
+    z-index: 10;
+}
+
+/* Dispositivos Móviles */
+@media (max-width: 600px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+    .glass-container {
+        padding: 20px;
+        margin-top: 20px;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .teleprompter {
+        font-size: 1rem;
+        padding: 15px;
+    }
+    .profile-title {
+        font-size: 1.5rem;
+    }
 }
