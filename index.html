@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoicePro - Análisis de Locución</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="background-elements">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+    </div>
+
+    <main class="glass-container">
+        <!-- Pantalla Inicio -->
+        <section id="screen-welcome" class="screen active">
+            <div class="logo">🎙️ Tincho VoicePro</div>
+            <h1>Descubre el <span class="highlight">poder</span> de tu voz.</h1>
+            <p>Analizará el tono, la potencia y la estabilidad de tu voz acústicamente para decirte tu perfil
+                actoral o de locución.</p>
+            <button id="btn-start" class="primary-btn">Comenzar Evaluación</button>
+            <p class="small-text">Requiere uso del micrófono.</p>
+        </section>
+
+        <!-- Pantalla de Grabación -->
+        <section id="screen-recording" class="screen hidden">
+            <div class="recording-header">
+                <span class="status-indicator"></span>
+                <h2>Lee este texto con naturalidad:</h2>
+            </div>
+
+            <div class="teleprompter">
+                <p id="prompt-text">
+                    La voz es una huella única, un reflejo del alma.
+                    En un mundo donde la forma en que decimos las cosas importa tanto como el mensaje en sí,
+                    el locutor se convierte en el puente entre la emoción y el oyente.
+                    Siente la resonancia, proyecta tu energía y deja que tu tono guíe las palabras.
+                </p>
+            </div>
+
+            <div class="visualizer-container">
+                <canvas id="visualizer"></canvas>
+            </div>
+
+            <div class="controls">
+                <button id="btn-stop" class="danger-btn hidden">Finalizar Lectura</button>
+            </div>
+        </section>
+
+        <!-- Pantalla de Análisis -->
+        <section id="screen-analyzing" class="screen hidden">
+            <div class="loader-container">
+                <div class="spinner"></div>
+                <h2>Analizando frecuencias...</h2>
+                <p>Calculando pitch, volumen y estabilidad tonal.</p>
+            </div>
+        </section>
+
+        <!-- Pantalla de Resultados -->
+        <section id="screen-results" class="screen hidden">
+            <h2>Tu Perfil Vocal</h2>
+            <div class="result-card">
+                <h3 id="result-profile" class="profile-title">Calculando...</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-label">Tono Promedio</span>
+                        <span id="stat-pitch" class="stat-value">-- Hz</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Potencia / Vol</span>
+                        <span id="stat-volume" class="stat-value">-- %</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Estabilidad</span>
+                        <span id="stat-stability" class="stat-value">-- / 100</span>
+                    </div>
+                </div>
+                <p id="result-description" class="result-description">Descripción de tu voz...</p>
+            </div>
+            <button id="btn-restart" class="secondary-btn">Hacer otra prueba</button>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Todos los derechos reservados por Martín Calvo Ruiz.</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
