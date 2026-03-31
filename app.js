@@ -28,6 +28,7 @@ let isRecording = false;
 // Data to collect
 let volumes = [];
 let pitches = [];
+let pitchHistory = [];
 
 // ======= Main Logic =======
 
@@ -44,6 +45,7 @@ btnRestart.addEventListener('click', () => {
     switchScreen('welcome');
     volumes = [];
     pitches = [];
+    pitchHistory = [];
 });
 
 function switchScreen(screenName) {
@@ -74,9 +76,22 @@ async function startRecording() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
         
+        // Highpass filter to remove rumble/wind noise (< 80Hz)
+        const highpassFilter = audioCtx.createBiquadFilter();
+        highpassFilter.type = 'highpass';
+        highpassFilter.frequency.value = 80;
+
+        // Lowpass filter to remove hiss/high frequency noise (> 10000Hz)
+        const lowpassFilter = audioCtx.createBiquadFilter();
+        lowpassFilter.type = 'lowpass';
+        lowpassFilter.frequency.value = 10000;
+        
         analyser.fftSize = 2048;
         microphone = audioCtx.createMediaStreamSource(stream);
-        microphone.connect(analyser);
+        
+        microphone.connect(highpassFilter);
+        highpassFilter.connect(lowpassFilter);
+        lowpassFilter.connect(analyser);
         
         isRecording = true;
         // give it a tiny delay to ensure screen changes render and canvas binds
@@ -141,13 +156,21 @@ function collectData() {
     const rms = Math.sqrt(sumSquares / bufferLength);
 
     // Only map data if voice is relatively present
-    if(rms > 0.015) {
+    if(rms > 0.01) {
         volumes.push(rms);
         
         // Basic Auto-correlation for pitch estimation
         const pitch = autoCorrelate(dataArray, audioCtx.sampleRate);
         if (pitch !== -1 && pitch > 60 && pitch < 600) { // Valid human voice pitch range roughly
-            pitches.push(pitch);
+            pitchHistory.push(pitch);
+            if (pitchHistory.length > 5) pitchHistory.shift();
+            
+            if (pitchHistory.length >= 3) {
+                let sorted = [...pitchHistory].sort((a,b) => a - b);
+                pitches.push(sorted[Math.floor(sorted.length / 2)]);
+            } else {
+                pitches.push(pitch);
+            }
         }
     }
     
@@ -220,20 +243,27 @@ function processResults() {
     setTimeout(() => {
         // Calculate averages
         const avgPitch = pitches.length > 0 ? pitches.reduce((a, b) => a + b, 0) / pitches.length : 0;
-        const avgVol = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
+        const avgVolRms = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
         
-        // Stability (Lower standard deviation of pitch = higher stability)
+        // Convert Volume to dB
+        const avgVolDb = avgVolRms > 0 ? 20 * Math.log10(avgVolRms) : -100;
+        
+        // Stability (Relative stability = Coefficient of Variation)
         let pitchVariance = 0;
         if(pitches.length > 0) {
             const sumDeviations = pitches.reduce((sum, val) => sum + Math.pow(val - avgPitch, 2), 0);
             pitchVariance = sumDeviations / pitches.length;
         }
         const pitchStdDev = Math.sqrt(pitchVariance);
-        // Map stability 0 to 100 based on standard dev (fewer std dev = more stable). Using conservative bounds.
-        let stabilityScore = Math.max(0, Math.min(100, 100 - (pitchStdDev / 2))); 
-        if(pitches.length < 5) stabilityScore = 0;
         
-        renderResults(avgPitch, avgVol, stabilityScore);
+        // Map stability 0 to 100 based on relative Coefficient of Variation. Lower CV = higher stability
+        let stabilityScore = 0;
+        if (avgPitch > 0 && pitches.length >= 5) {
+            const cv = (pitchStdDev / avgPitch) * 100; // CV in percentage
+            stabilityScore = Math.max(0, Math.min(100, 100 - (cv * 5))); 
+        }
+        
+        renderResults(avgPitch, avgVolDb, stabilityScore);
         switchScreen('results');
     }, 2500); // UI delay for suspense
 }
@@ -249,7 +279,7 @@ function renderResults(pitch, volume, stability) {
     }
     
     statPitch.innerText = Math.round(pitch) + " Hz";
-    statVolume.innerText = Math.round(volume * 1000) + " %";
+    statVolume.innerText = (volume <= -90 ? "N/A" : Math.round(volume) + " dB");
     statStability.innerText = Math.round(stability) + "/100";
     
     // Determine profile
@@ -259,7 +289,7 @@ function renderResults(pitch, volume, stability) {
     if (pitch < 120 && stability > 60) {
         profile = "Voz de Cine / Tráiler";
         desc = "¡Epicidad pura! Tienes tonos graves profundos y una excelente resonancia. Tu voz transmite autoridad y drama. Ideal para documentales impactantes o tráilers de películas.";
-    } else if (pitch < 165 && volume > 0.05) {
+    } else if (pitch < 165 && volume > -26) {
         profile = "Voz de Radio FM / Podcast";
         desc = "Tu registro es cálido y equilibrado. Tienes una afinación muy amigable al oído, perfecta para mantener la atención de los oyentes por horas. ¡Espectacular para podcasts y radio!";
     } else if (pitch >= 165 && pitch < 220) {
