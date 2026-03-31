@@ -69,13 +69,13 @@ window.addEventListener('resize', resizeCanvas);
 async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        
+
         switchScreen('recording');
         btnStop.classList.remove('hidden');
-        
+
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
-        
+
         // Highpass filter to remove rumble/wind noise (< 80Hz)
         const highpassFilter = audioCtx.createBiquadFilter();
         highpassFilter.type = 'highpass';
@@ -85,14 +85,14 @@ async function startRecording() {
         const lowpassFilter = audioCtx.createBiquadFilter();
         lowpassFilter.type = 'lowpass';
         lowpassFilter.frequency.value = 10000;
-        
+
         analyser.fftSize = 2048;
         microphone = audioCtx.createMediaStreamSource(stream);
-        
+
         microphone.connect(highpassFilter);
         highpassFilter.connect(lowpassFilter);
         lowpassFilter.connect(analyser);
-        
+
         isRecording = true;
         // give it a tiny delay to ensure screen changes render and canvas binds
         setTimeout(() => {
@@ -143,12 +143,12 @@ function drawVisualizer() {
 
 function collectData() {
     if (!isRecording) return;
-    
+
     // RMS Volume calculation
     const bufferLength = analyser.fftSize;
     const dataArray = new Float32Array(bufferLength);
     analyser.getFloatTimeDomainData(dataArray);
-    
+
     let sumSquares = 0.0;
     for (let i = 0; i < bufferLength; i++) {
         sumSquares += dataArray[i] * dataArray[i];
@@ -156,24 +156,24 @@ function collectData() {
     const rms = Math.sqrt(sumSquares / bufferLength);
 
     // Only map data if voice is relatively present
-    if(rms > 0.01) {
+    if (rms > 0.01) {
         volumes.push(rms);
-        
+
         // Basic Auto-correlation for pitch estimation
         const pitch = autoCorrelate(dataArray, audioCtx.sampleRate);
         if (pitch !== -1 && pitch > 60 && pitch < 600) { // Valid human voice pitch range roughly
             pitchHistory.push(pitch);
             if (pitchHistory.length > 5) pitchHistory.shift();
-            
+
             if (pitchHistory.length >= 3) {
-                let sorted = [...pitchHistory].sort((a,b) => a - b);
+                let sorted = [...pitchHistory].sort((a, b) => a - b);
                 pitches.push(sorted[Math.floor(sorted.length / 2)]);
             } else {
                 pitches.push(pitch);
             }
         }
     }
-    
+
     setTimeout(collectData, 100); // 10 times a second
 }
 
@@ -227,11 +227,11 @@ function autoCorrelate(buf, sampleRate) {
 function stopRecording() {
     isRecording = false;
     cancelAnimationFrame(animationId);
-    if(audioCtx) {
+    if (audioCtx) {
         // Stop capturing audio
         try {
             microphone.mediaStream.getTracks().forEach(track => track.stop());
-        } catch(e) {}
+        } catch (e) { }
         audioCtx.close();
     }
     btnStop.classList.add('hidden');
@@ -239,30 +239,33 @@ function stopRecording() {
 
 function processResults() {
     switchScreen('analyzing');
-    
+
     setTimeout(() => {
         // Calculate averages
         const avgPitch = pitches.length > 0 ? pitches.reduce((a, b) => a + b, 0) / pitches.length : 0;
         const avgVolRms = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
-        
+
         // Convert Volume to dB
         const avgVolDb = avgVolRms > 0 ? 20 * Math.log10(avgVolRms) : -100;
-        
+
         // Stability (Relative stability = Coefficient of Variation)
         let pitchVariance = 0;
-        if(pitches.length > 0) {
+        if (pitches.length > 0) {
             const sumDeviations = pitches.reduce((sum, val) => sum + Math.pow(val - avgPitch, 2), 0);
             pitchVariance = sumDeviations / pitches.length;
         }
         const pitchStdDev = Math.sqrt(pitchVariance);
-        
+
         // Map stability 0 to 100 based on relative Coefficient of Variation. Lower CV = higher stability
         let stabilityScore = 0;
         if (avgPitch > 0 && pitches.length >= 5) {
             const cv = (pitchStdDev / avgPitch) * 100; // CV in percentage
-            stabilityScore = Math.max(0, Math.min(100, 100 - (cv * 5))); 
+            // Normal human voice reading usually has a CV between 10% and 25%.
+            // We penalize CV above 5%, scaled so that CV > 38% gives 0 stability.
+            const cvPenalty = Math.max(0, cv - 5) * 3;
+            stabilityScore = Math.max(0, Math.min(100, 100 - cvPenalty)); 
         }
-        
+
         renderResults(avgPitch, avgVolDb, stabilityScore);
         switchScreen('results');
     }, 2500); // UI delay for suspense
@@ -277,15 +280,15 @@ function renderResults(pitch, volume, stability) {
         resultDescription.innerText = "Parece que no hablaste lo suficiente o el volumen de tu entorno interfirió. Por favor, inténtalo de nuevo leyendo todo el texto.";
         return;
     }
-    
+
     statPitch.innerText = Math.round(pitch) + " Hz";
     statVolume.innerText = (volume <= -90 ? "N/A" : Math.round(volume) + " dB");
     statStability.innerText = Math.round(stability) + "/100";
-    
+
     // Determine profile
     let profile = "";
     let desc = "";
-    
+
     if (pitch < 120 && stability > 60) {
         profile = "Voz de Cine / Tráiler";
         desc = "¡Epicidad pura! Tienes tonos graves profundos y una excelente resonancia. Tu voz transmite autoridad y drama. Ideal para documentales impactantes o tráilers de películas.";
@@ -303,10 +306,10 @@ function renderResults(pitch, volume, stability) {
         desc = "Tienes un tono único que suena muy natural. ¡La industria de hoy en día busca voces reales y conversacionales! Con tu nivel, eres ideal para locución e-learning corporativa y audiolibros relax.";
     }
 
-    if(stability < 50) {
+    if (stability < 50) {
         desc += " Notamos que el tono de tu voz varió bastante. Si intentabas ser expresivo ¡Genial! Si intentabas leer recto, practica un poco la estabilidad en tu respiración.";
     }
-    
+
     resultProfile.innerText = profile;
     resultDescription.innerText = desc;
 }
